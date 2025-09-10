@@ -1,0 +1,21 @@
+{
+  "name": "nextjs-bootstrap-app",
+  "version": "0.0.1",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "test": "echo \"No tests\""
+  },
+  "dependencies": {
+    "next": "15.5.2",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "bootstrap": "5.3.8"
+  },
+  "devDependencies": {
+    "eslint": "8.57.0",
+    "eslint-config-next": "15.5.2"
+  }
+}

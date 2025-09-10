@@ -1,0 +1,50 @@
+spring:
+  application:
+    name: spring-telegram-client
+
+  # TDLib клиент — значения берём из переменных окружения
+  telegram:
+    client:
+      api-id: "----"
+      api-hash: "----"
+      phone: "+-----"
+      database-encryption-key: "-----"
+      system-language-code: ru
+      device-model: spring-tdlib-client
+      use-message-database: true
+      use-file-database: true
+      use-chat-info-database: true
+      use-secret-chats: false
+      log-verbosity-level: 1
+      # Можно указать каталог БД TDLib, иначе текущий рабочий:
+      # database-directory: /data/tdlib
+
+server:
+  port: 8080
+
+app:
+  # username канала (без @), в который вступаем и чьи посты комментируем
+  channel:
+    username: "YouKanal"
+    # при старте игнорировать старые посты, сек
+    fresh-window-seconds: ${FRESH_WINDOW_SECONDS:60}
+  publish:
+    enabled: true
+    text-url: https://www.you_site.ru/publish/text
+    ingest-url: https://www.you_site.ru/ingest
+    image-url: https://www.you_site.ru/imager/upload
+    timeout-ms: 5000   # при необходимости увеличь
+
+  openai:
+    api-key: "----"
+    api-base-url: https://api.openai.com/v1
+    model: ${OPENAI_MODEL:gpt-4.1-mini}
+    max-tokens: ${OPENAI_MAX_TOKENS:200}
+    temperature: ${OPENAI_TEMPERATURE:0.65}
+    # системный промпт для стиля комментария
+    system-prompt: >
+      Ты — пишешь рассказ по изображению для телеграм-канала.
+      Пиши 2-3 предложения по делу, без хэштегов, без эмодзи, без обращений и упоминаний.
+
+    user-prompt: >
+      Сделай рассказ к этому изображению для канала.

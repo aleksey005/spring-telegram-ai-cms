@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <style>
+    @keyframes colorShift {
+      0% { fill: #3BFF00; }
+      25% { fill: #00FFFF; }
+      50% { fill: #FF00FF; }
+      75% { fill: #FFFF00; }
+      100% { fill: #3BFF00; }
+    }
+
+    polygon {
+      animation: colorShift 10s linear infinite;
+    }
+  </style>
+  <polygon points="50,0 0,50 50,100 100,50" />
+</svg>

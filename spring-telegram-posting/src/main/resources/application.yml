@@ -1,0 +1,15 @@
+server:
+  port: 8082
+
+spring:
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 20MB
+
+telegram:
+  bot-token: "----"
+  chat-id: "------"
+
+security:
+  publish-auth-token: ${PUBLISH_AUTH_TOKEN:}

@@ -1,0 +1,24 @@
+# /src/main/resources/application.yml
+server:
+  port: 8084
+
+app:
+  qdrant:
+    base-url: https://www.you_site.ru/qdrant/ # сервис qdrant
+    api-key: "---------"                # если нужен, иначе оставьте пустым
+    collection: spring_qdrant
+    vector-size: 1536          # подберите под вашу модель эмбеддингов
+    distance: Cosine           # Cosine | Euclid | Dot
+    create-if-missing: true
+
+  embedding:
+    provider: openai           # openai | none
+    openai:
+      api-url: https://api.openai.com/v1/embeddings
+      api-key: "----"
+      model: text-embedding-3-small  # либо text-embedding-3-large
+    # для provider: none — сервис будет падать при вызове, чтобы не забыли включить реальный провайдер
+
+spring:
+  main:
+    banner-mode: "off"

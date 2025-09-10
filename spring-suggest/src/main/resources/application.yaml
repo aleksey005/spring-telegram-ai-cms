@@ -1,0 +1,13 @@
+server:
+  port: 8083
+
+suggest:
+  index: opcorpora_terms
+
+opensearch:
+  host: www.siyou_sitemshp.ru
+  port: 443
+  scheme: https
+  pathPrefix: opensearch
+  username: admin
+  password: -----------------
