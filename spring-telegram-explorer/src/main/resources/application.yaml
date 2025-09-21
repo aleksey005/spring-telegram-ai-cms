@@ -1,0 +1,56 @@
+server:
+  port: 8080
+  forward-headers-strategy: native
+
+spring:
+  web:
+    resources:
+      static-locations:
+        - classpath:/static/
+        - file:/app/public/
+  datasource:
+    url: jdbc:postgresql://postgresql.postgresql.svc.cluster.local:5432/telegram
+    username: postgres
+    password: postgres
+
+  jpa:
+    hibernate:
+      ddl-auto: none
+    open-in-view: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        jdbc.lob.non_contextual_creation: true
+
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.yml
+
+  thymeleaf:
+    cache: false
+
+  # TDLib client — значения берутся из переменных окружения
+  telegram:
+    client:
+      api-id: ${TELEGRAM_API_ID}
+      api-hash: ${TELEGRAM_API_HASH}
+      phone: ${TELEGRAM_API_PHONE}
+      database-encryption-key: ${TELEGRAM_API_DATABASE_ENCRYPTION}
+      device-model: spring_telegram_explorer
+      use-message-database: true
+      use-file-database: true
+      use-chat-info-database: true
+      use-secret-chats: true
+      log-verbosity-level: 1
+      database-directory: /tdlib-db
+      system-language-code: en-US
+
+# Список публичных каналов: usernames через запятую (например: "tassagency_en, meduzaio")
+explorer:
+  channels: "mash, mash_room"
+  media-dir: /data/media
+  download-photos: true
+  download-formats: [png, jpg, jpeg, webp]  # видео не скачиваем — берём только caption
+  openai:
+    api-key: ${OPENAI_API_KEY}
+    embeddings-model: text-embedding-3-small
+    dimensions: 1536

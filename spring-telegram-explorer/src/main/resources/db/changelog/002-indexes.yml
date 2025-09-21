@@ -1,0 +1,20 @@
+databaseChangeLog:
+  - changeSet:
+      id: 003-indexes
+      author: simshp
+      changes:
+        - createIndex:
+            indexName: idx_message_channel_time
+            tableName: message
+            columns:
+              - column: { name: channel_id }
+              - column: { name: published_at }
+        - createIndex:
+            indexName: idx_message_chat_msg
+            tableName: message
+            unique: true
+            columns:
+              - column: { name: tg_chat_id }
+              - column: { name: tg_message_id }
+        - sql:
+            sql: CREATE INDEX IF NOT EXISTS idx_embedding_cosine ON embedding USING ivfflat (vector vector_cosine_ops) WITH (lists=100);

@@ -1,0 +1,66 @@
+databaseChangeLog:
+  - changeSet:
+      id: 001-enable-pgvector
+      author: simshp
+      changes:
+        - sql:
+            sql: CREATE EXTENSION IF NOT EXISTS vector;
+
+  - changeSet:
+      id: 002-tables
+      author: simshp
+      changes:
+        - createTable:
+            tableName: channel
+            columns:
+              - column: { name: id, type: BIGSERIAL, constraints: { primaryKey: true } }
+              - column: { name: username, type: VARCHAR(255), constraints: { nullable: false, unique: true } }
+              - column: { name: title, type: VARCHAR(512) }
+        - createTable:
+            tableName: message
+            columns:
+              - column: { name: id, type: BIGSERIAL, constraints: { primaryKey: true } }
+              - column: { name: tg_chat_id, type: BIGINT, constraints: { nullable: false } }
+              - column: { name: tg_message_id, type: BIGINT, constraints: { nullable: false } }
+              - column: { name: channel_id, type: BIGINT, constraints: { nullable: false } }
+              - column: { name: thread_id, type: BIGINT } # для комментариев/threads
+              - column: { name: author_username, type: VARCHAR(255) }
+              - column: { name: text, type: TEXT }
+              - column: { name: caption, type: TEXT }
+              - column: { name: has_media, type: BOOLEAN, defaultValueBoolean: false }
+              - column: { name: is_comment, type: BOOLEAN, defaultValueBoolean: false }
+              - column: { name: published_at, type: TIMESTAMP WITH TIME ZONE }
+        - addForeignKeyConstraint:
+            baseTableName: message
+            baseColumnNames: channel_id
+            referencedTableName: channel
+            referencedColumnNames: id
+            constraintName: fk_message_channel
+        - createTable:
+            tableName: media
+            columns:
+              - column: { name: id, type: BIGSERIAL, constraints: { primaryKey: true } }
+              - column: { name: message_id, type: BIGINT, constraints: { nullable: false } }
+              - column: { name: kind, type: VARCHAR(50) } # photo|video|document|other
+              - column: { name: mime_type, type: VARCHAR(255) }
+              - column: { name: file_path, type: TEXT }    # локальный путь к скачанному файлу
+              - column: { name: caption, type: TEXT }
+        - addForeignKeyConstraint:
+            baseTableName: media
+            baseColumnNames: message_id
+            referencedTableName: message
+            referencedColumnNames: id
+            constraintName: fk_media_message
+        - createTable:
+            tableName: embedding
+            columns:
+              - column: { name: id, type: BIGSERIAL, constraints: { primaryKey: true } }
+              - column: { name: message_id, type: BIGINT, constraints: { nullable: false, unique: true } }
+              - column: { name: json_payload, type: JSONB }     # исходный JSON-документ (см. схему ниже)
+              - column: { name: vector, type: "vector(1536)" }  # под размер вашей модели
+        - addForeignKeyConstraint:
+            baseTableName: embedding
+            baseColumnNames: message_id
+            referencedTableName: message
+            referencedColumnNames: id
+            constraintName: fk_embedding_message

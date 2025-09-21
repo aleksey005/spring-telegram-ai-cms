@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "TelegramMessageDocument",
+  "type": "object",
+  "required": ["id", "chatId", "messageId", "type", "textOrCaption", "timestamp"],
+  "properties": {
+    "id": { "type": "string", "description": "UUID приложения" },
+    "chatId": { "type": "integer" },
+    "messageId": { "type": "integer" },
+    "threadId": { "type": ["integer", "null"] },
+    "channelUsername": { "type": ["string", "null"] },
+    "authorUsername": { "type": ["string", "null"] },
+    "type": { "type": "string", "enum": ["channel_post", "comment"] },
+    "textOrCaption": { "type": ["string", "null"] },
+    "media": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "kind": { "type": "string", "enum": ["photo", "video", "document", "other"] },
+          "mimeType": { "type": ["string", "null"] },
+          "path": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "timestamp": { "type": "string", "format": "date-time" }
+  }
+}
