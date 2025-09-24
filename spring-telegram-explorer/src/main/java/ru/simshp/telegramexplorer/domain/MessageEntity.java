@@ -43,4 +43,7 @@ public class MessageEntity {
 
     @Column(name="published_at")
     private OffsetDateTime publishedAt;
+
+    @OneToOne(mappedBy = "message", fetch = FetchType.LAZY)
+    private AiCommentEntity aiComment;
 }

@@ -97,5 +97,7 @@ public class ExplorerProperties {
         @NotBlank
         private String embeddingsModel = "text-embedding-3-small";
         private int dimensions = 1536;
+        @NotBlank
+        private String commentModel = "gpt-4o-mini";
     }
 }

@@ -23,11 +23,14 @@ public class UpdateNewMessageListener implements UpdateNotificationListener<TdAp
 
     @Override
     public void handleNotification(TdApi.UpdateNewMessage notification) {
+        TdApi.Message message = notification.message;
+        log.info("Received update: chatId={}, messageId={}", message.chatId, message.id);
         telegramUpdateExecutor.execute(() -> {
             try {
-                ingestService.handleUpdateMessage(notification.message);
+                ingestService.handleUpdateMessage(message);
             } catch (Exception e) {
-                log.error("Failed to process message: {}", e.getMessage(), e);
+                log.error("Failed to process message: chatId={}, messageId={}, error={}",
+                        message.chatId, message.id, e.getMessage(), e);
             }
         });
     }

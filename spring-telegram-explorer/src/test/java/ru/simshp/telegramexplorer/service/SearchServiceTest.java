@@ -6,13 +6,16 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.PreparedStatementSetter;
 import org.springframework.jdbc.core.RowMapper;
 import ru.simshp.telegramexplorer.config.ExplorerProperties;
+import ru.simshp.telegramexplorer.service.MessageImageService;
 import ru.simshp.telegramexplorer.web.dto.MessageView;
 
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -27,13 +30,16 @@ class SearchServiceTest {
         JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
 
         MessageView fallback = new MessageView(1L, "channel", false, null, null,
-                "text match", null, false, OffsetDateTime.now());
+                "text match", null, false, null, null, OffsetDateTime.now());
 
         when(jdbcTemplate.query(anyString(), any(PreparedStatementSetter.class), any(RowMapper.class)))
                 .thenReturn(List.of())
                 .thenReturn(List.of(fallback));
 
-        SearchService service = new TestableSearchService(props, jdbcTemplate);
+        MessageImageService imageService = mock(MessageImageService.class);
+        when(imageService.findFirstPhoto(anyLong())).thenReturn(Optional.empty());
+
+        SearchService service = new TestableSearchService(props, jdbcTemplate, imageService);
 
         List<MessageView> results = service.search("кот", 5);
 
@@ -52,13 +58,16 @@ class SearchServiceTest {
         JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
 
         MessageView fallback = new MessageView(2L, "channel", false, null, null,
-                "other text", null, false, OffsetDateTime.now());
+                "other text", null, false, null, null, OffsetDateTime.now());
 
         when(jdbcTemplate.query(anyString(), any(PreparedStatementSetter.class), any(RowMapper.class)))
                 .thenThrow(new RuntimeException("pgvector unavailable"))
                 .thenReturn(List.of(fallback));
 
-        SearchService service = new TestableSearchService(props, jdbcTemplate);
+        MessageImageService imageService = mock(MessageImageService.class);
+        when(imageService.findFirstPhoto(anyLong())).thenReturn(Optional.empty());
+
+        SearchService service = new TestableSearchService(props, jdbcTemplate, imageService);
 
         List<MessageView> results = service.search("кот", 5);
 
@@ -73,8 +82,8 @@ class SearchServiceTest {
     }
 
     private static class TestableSearchService extends SearchService {
-        TestableSearchService(ExplorerProperties props, JdbcTemplate jdbcTemplate) {
-            super(props, jdbcTemplate);
+        TestableSearchService(ExplorerProperties props, JdbcTemplate jdbcTemplate, MessageImageService messageImageService) {
+            super(props, jdbcTemplate, messageImageService);
         }
 
         @Override

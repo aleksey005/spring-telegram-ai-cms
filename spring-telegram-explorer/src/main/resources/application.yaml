@@ -46,7 +46,7 @@ spring:
 
 # Список публичных каналов: usernames через запятую (например: "tassagency_en, meduzaio")
 explorer:
-  channels: "mash, mash_room"
+  channels: "tassagency_en, meduzaio"
   media-dir: /data/media
   download-photos: true
   download-formats: [png, jpg, jpeg, webp]  # видео не скачиваем — берём только caption
@@ -54,3 +54,4 @@ explorer:
     api-key: ${OPENAI_API_KEY}
     embeddings-model: text-embedding-3-small
     dimensions: 1536
+    comment-model: gpt-4o-mini

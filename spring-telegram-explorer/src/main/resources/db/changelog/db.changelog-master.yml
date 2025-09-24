@@ -3,3 +3,5 @@ databaseChangeLog:
       file: db/changelog/001-init.yml
   - include:
       file: db/changelog/002-indexes.yml
+  - include:
+      file: db/changelog/003-ai-comments.yml

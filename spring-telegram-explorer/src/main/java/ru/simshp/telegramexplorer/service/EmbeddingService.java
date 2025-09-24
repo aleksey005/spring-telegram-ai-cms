@@ -1,7 +1,9 @@
 package ru.simshp.telegramexplorer.service;
 
-import com.theokanning.openai.service.OpenAiService;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.theokanning.openai.embedding.EmbeddingRequest;
+import com.theokanning.openai.service.OpenAiService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -19,6 +21,7 @@ public class EmbeddingService {
 
     private final ExplorerProperties props;
     private final JdbcTemplate jdbcTemplate;
+    private final ObjectMapper objectMapper;
 
     public void upsertEmbedding(MessageEntity message, String jsonPayload) {
         var text = (message.getText() != null && !message.getText().isBlank())
@@ -62,8 +65,8 @@ public class EmbeddingService {
           .append("\"chatId\":").append(msg.getTgChatId()).append(",")
           .append("\"messageId\":").append(msg.getTgMessageId()).append(",")
           .append("\"threadId\":").append(msg.getThreadId() == null ? "null" : msg.getThreadId()).append(",")
-          .append("\"channelUsername\":").append(msg.getChannel() == null ? "null" : "\"" + msg.getChannel().getUsername() + "\"").append(",")
-          .append("\"authorUsername\":").append(msg.getAuthorUsername() == null ? "null" : "\"" + msg.getAuthorUsername() + "\"").append(",")
+            .append("\"channelUsername\":").append(toJsonStringOrNull(msg.getChannel() == null ? null : msg.getChannel().getUsername())).append(",")
+            .append("\"authorUsername\":").append(toJsonStringOrNull(msg.getAuthorUsername())).append(",")
           .append("\"type\":\"").append(msg.isComment() ? "comment" : "channel_post").append("\",")
           .append("\"textOrCaption\":").append(toJsonStringOrNull(msg.getText() != null ? msg.getText() : msg.getCaption())).append(",")
           .append("\"media\":[");
@@ -71,7 +74,7 @@ public class EmbeddingService {
             var m = media.get(i);
             if (i>0) sb.append(",");
             sb.append("{")
-              .append("\"kind\":\"").append(m.getOrDefault("kind","other")).append("\",")
+              .append("\"kind\":").append(toJsonStringOrNull((String) m.getOrDefault("kind", "other"))).append(",")
               .append("\"mimeType\":").append(toJsonStringOrNull((String)m.get("mimeType"))).append(",")
               .append("\"path\":").append(toJsonStringOrNull((String)m.get("path")))
               .append("}");
@@ -84,6 +87,10 @@ public class EmbeddingService {
 
     private String toJsonStringOrNull(String s) {
         if (s == null) return "null";
-        return "\"" + s.replace("\"","\\\"") + "\"";
+        try {
+            return objectMapper.writeValueAsString(s);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("Failed to serialize string to JSON", e);
+        }
     }
 }

@@ -25,6 +25,7 @@ public class SearchService {
 
     private final ExplorerProperties props;
     private final JdbcTemplate jdbcTemplate;
+    private final MessageImageService messageImageService;
 
     public List<MessageView> search(String query) {
         return search(query, DEFAULT_LIMIT);
@@ -38,16 +39,17 @@ public class SearchService {
 
         int effectiveLimit = limit <= 0 ? DEFAULT_LIMIT : limit;
 
-        try {
-            List<MessageView> vectorResults = searchByEmbeddings(trimmed, effectiveLimit);
-            if (!vectorResults.isEmpty()) {
-                return vectorResults;
-            }
-        } catch (RuntimeException ex) {
-            log.warn("Failed to search using embeddings: {}", ex.getMessage());
+        List<MessageView> plainTextResults = searchByPlainText(trimmed, effectiveLimit);
+        if (!plainTextResults.isEmpty()) {
+            return plainTextResults;
         }
 
-        return searchByPlainText(trimmed, effectiveLimit);
+        try {
+            return searchByEmbeddings(trimmed, effectiveLimit);
+        } catch (RuntimeException ex) {
+            log.warn("Failed to search using embeddings: {}", ex.getMessage());
+            return plainTextResults;
+        }
     }
 
     private List<MessageView> searchByEmbeddings(String query, int limit) {
@@ -65,11 +67,13 @@ public class SearchService {
                                m.text,
                                m.caption,
                                m.has_media,
+                               ac.comment_text AS ai_comment,
                                m.published_at
                         FROM embedding e
                         JOIN query_embedding q ON TRUE
                         JOIN message m ON m.id = e.message_id
                         LEFT JOIN channel c ON c.id = m.channel_id
+                        LEFT JOIN ai_comment ac ON ac.message_id = m.id
                         ORDER BY e.vector <=> q.embedding
                         LIMIT ?
                         """,
@@ -93,9 +97,11 @@ public class SearchService {
                                m.text,
                                m.caption,
                                m.has_media,
+                               ac.comment_text AS ai_comment,
                                m.published_at
                         FROM message m
                         LEFT JOIN channel c ON c.id = m.channel_id
+                        LEFT JOIN ai_comment ac ON ac.message_id = m.id
                         WHERE (m.text ILIKE ? ESCAPE '\\')
                            OR (m.caption ILIKE ? ESCAPE '\\')
                         ORDER BY m.published_at DESC NULLS LAST, m.id DESC
@@ -127,8 +133,9 @@ public class SearchService {
     }
 
     private MessageView mapRow(ResultSet rs, int rowNum) throws SQLException {
+        long id = rs.getLong("id");
         return new MessageView(
-                rs.getLong("id"),
+                id,
                 defaultString(rs.getString("channel_username")),
                 rs.getBoolean("is_comment"),
                 rs.getObject("thread_id", Long.class),
@@ -136,8 +143,16 @@ public class SearchService {
                 rs.getString("text"),
                 rs.getString("caption"),
                 rs.getBoolean("has_media"),
+                buildImageUrl(id),
+                rs.getString("ai_comment"),
                 rs.getObject("published_at", OffsetDateTime.class)
         );
+    }
+
+    private String buildImageUrl(long messageId) {
+        return messageImageService.findFirstPhoto(messageId)
+                .map(image -> "/api/messages/" + messageId + "/image")
+                .orElse(null);
     }
 
     private String toLikePattern(String query) {

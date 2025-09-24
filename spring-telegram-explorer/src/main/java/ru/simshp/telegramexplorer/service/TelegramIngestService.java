@@ -34,6 +34,7 @@ public class TelegramIngestService {
     private final MediaRepository mediaRepository;
     private final EmbeddingService embeddingService;
     private final MediaStorageService mediaStorageService;
+    private final MessageStreamPublisher messageStreamPublisher;
 
     public TelegramIngestService(@Lazy TelegramClient telegramClient,
                                  ExplorerProperties props,
@@ -41,7 +42,8 @@ public class TelegramIngestService {
                                  MessageRepository messageRepository,
                                  MediaRepository mediaRepository,
                                  EmbeddingService embeddingService,
-                                 MediaStorageService mediaStorageService) {
+                                 MediaStorageService mediaStorageService,
+                                 MessageStreamPublisher messageStreamPublisher) {
         this.telegramClient = telegramClient;
         this.props = props;
         this.channelRepository = channelRepository;
@@ -49,6 +51,7 @@ public class TelegramIngestService {
         this.mediaRepository = mediaRepository;
         this.embeddingService = embeddingService;
         this.mediaStorageService = mediaStorageService;
+        this.messageStreamPublisher = messageStreamPublisher;
     }
 
     @Transactional
@@ -59,6 +62,8 @@ public class TelegramIngestService {
         Optional<TdApi.Chat> chatOpt = sendWithRetry(() -> new TdApi.GetChat(chatId),
                 "chat %d".formatted(chatId));
         if (chatOpt.isEmpty()) {
+            logProcessingStatus(chatId, messageId, null,
+                    "CHAT_LOOKUP_FAILED", "Chat lookup returned empty result");
             return;
         }
         TdApi.Chat chat = chatOpt.get();
@@ -72,6 +77,8 @@ public class TelegramIngestService {
         var allowedUsernames = props.getNormalizedChannelUsernames();
         if (!allowedUsernames.isEmpty()) {
             if (!allowedUsernames.contains(channelUsername.toLowerCase(Locale.ROOT))) {
+                logProcessingStatus(chatId, messageId, channelUsername,
+                        "SKIPPED_NOT_ALLOWED", "Channel filtered by configuration");
                 return;
             }
         }
@@ -79,71 +86,92 @@ public class TelegramIngestService {
         ChannelEntity channel = getOrCreateChannel(channelUsername, chat.title);
 
         // защита от дублей
-        if (messageRepository.findByTgChatIdAndTgMessageId(chatId, messageId).isPresent()) return;
-
-        TdApi.MessageContent content = msg.content;
-        String text = extractTextIfAny(content);
-        String caption = extractCaptionIfAny(content);
-
-        // признак комментария — наличие треда
-        boolean isComment = (msg.messageThreadId != 0);
-        Long threadId = msg.messageThreadId == 0 ? null : msg.messageThreadId;
-
-        MessageEntity entity = MessageEntity.builder()
-                .tgChatId(chatId)
-                .tgMessageId(messageId)
-                .channel(channel)
-                .threadId(threadId)
-                .authorUsername(extractAuthorUsername(msg))
-                .text(text)
-                .caption(caption)
-                .hasMedia(hasPhoto(content))
-                .comment(isComment)
-                .publishedAt(toOffsetDateTime(msg.date))
-                .build();
-        entity = messageRepository.save(entity);
-
-        // Медиа: фото (png/jpg/jpeg/webp). Видео — только caption.
-        var mediaList = new ArrayList<Map<String, Object>>();
-        if (hasPhoto(content) && props.isDownloadPhotos()) {
-            List<PhotoInfo> photos = extractPhotos(content);
-            for (int i = 0; i < photos.size(); i++) {
-                PhotoInfo p = photos.get(i);
-                TdApi.PhotoSize[] sizes = p.photo.sizes;
-                if (sizes == null || sizes.length == 0) continue;
-                TdApi.File photoFile = sizes[sizes.length - 1].photo;
-                byte[] bytes = downloadFileBytes(photoFile);
-                if (bytes == null) continue;
-
-                String ext = guessExtension(p.mimeType, "jpg");
-                String fileName = "ch" + chatId + "_m" + messageId + "_" + i + "." + ext;
-                try {
-                    Path saved = mediaStorageService.saveBytes(bytes, fileName);
-                    mediaRepository.save(MediaEntity.builder()
-                            .message(entity)
-                            .kind("photo")
-                            .mimeType(p.mimeType)
-                            .filePath(saved.toString())
-                            .caption(caption)
-                            .build());
-                    mediaList.add(Map.of(
-                            "kind", "photo",
-                            "mimeType", p.mimeType,
-                            "path", saved.toString()
-                    ));
-                } catch (Exception e) {
-                    log.warn("Failed to save media: {}", e.getMessage());
-                }
-            }
+        if (messageRepository.findByTgChatIdAndTgMessageId(chatId, messageId).isPresent()) {
+            logProcessingStatus(chatId, messageId, channelUsername,
+                    "SKIPPED_DUPLICATE", "Message already ingested");
+            return;
         }
 
-        // Векторизация
-        String json = embeddingService.buildJsonDocument(entity, mediaList);
-        embeddingService.upsertEmbedding(entity, json);
+        try {
+            TdApi.MessageContent content = msg.content;
+            String text = extractTextIfAny(content);
+            String caption = extractCaptionIfAny(content);
 
-        // Если у сообщения есть тред/комменты — подтянуть их
-        if (canFetchMessageThread(msg)) {
-            tryFetchComments(chatId, messageId);
+            // признак комментария — наличие треда
+            boolean isComment = (msg.messageThreadId != 0);
+            Long threadId = msg.messageThreadId == 0 ? null : msg.messageThreadId;
+
+            MessageEntity entity = MessageEntity.builder()
+                    .tgChatId(chatId)
+                    .tgMessageId(messageId)
+                    .channel(channel)
+                    .threadId(threadId)
+                    .authorUsername(extractAuthorUsername(msg))
+                    .text(text)
+                    .caption(caption)
+                    .hasMedia(hasPhoto(content))
+                    .comment(isComment)
+                    .publishedAt(toOffsetDateTime(msg.date))
+                    .build();
+            entity = messageRepository.save(entity);
+
+            // Медиа: фото (png/jpg/jpeg/webp). Видео — только caption.
+            var mediaList = new ArrayList<Map<String, Object>>();
+            if (hasPhoto(content) && props.isDownloadPhotos()) {
+                List<PhotoInfo> photos = extractPhotos(content);
+                for (int i = 0; i < photos.size(); i++) {
+                    PhotoInfo p = photos.get(i);
+                    TdApi.PhotoSize[] sizes = p.photo.sizes;
+                    if (sizes == null || sizes.length == 0) continue;
+                    TdApi.File photoFile = sizes[sizes.length - 1].photo;
+                    byte[] bytes = downloadFileBytes(photoFile);
+                    if (bytes == null) continue;
+
+                    String ext = guessExtension(p.mimeType, "jpg");
+                    String fileName = "ch" + chatId + "_m" + messageId + "_" + i + "." + ext;
+                    try {
+                        Path saved = mediaStorageService.saveBytes(bytes, fileName);
+                        mediaRepository.save(MediaEntity.builder()
+                                .message(entity)
+                                .kind("photo")
+                                .mimeType(p.mimeType)
+                                .filePath(saved.toString())
+                                .caption(caption)
+                                .build());
+                        mediaList.add(Map.of(
+                                "kind", "photo",
+                                "mimeType", p.mimeType,
+                                "path", saved.toString()
+                        ));
+                    } catch (Exception e) {
+                        log.warn("Failed to save media: {}", e.getMessage());
+                    }
+                }
+            }
+
+            // Векторизация
+            String json = embeddingService.buildJsonDocument(entity, mediaList);
+            embeddingService.upsertEmbedding(entity, json);
+
+            messageStreamPublisher.publishCreatedMessage(entity);
+
+            // Если у сообщения есть тред/комменты — подтянуть их
+            if (canFetchMessageThread(msg)) {
+                tryFetchComments(chatId, messageId);
+            }
+
+            var detailParts = new ArrayList<String>();
+            if (isComment) {
+                detailParts.add("comment");
+            }
+            if (!mediaList.isEmpty()) {
+                detailParts.add("mediaSaved=" + mediaList.size());
+            }
+            String details = detailParts.isEmpty() ? null : String.join(", ", detailParts);
+            logProcessingStatus(chatId, messageId, channelUsername, "PROCESSED", details);
+        } catch (RuntimeException e) {
+            logProcessingStatus(chatId, messageId, channelUsername, "FAILED", e.getMessage());
+            throw e;
         }
     }
 
@@ -236,17 +264,90 @@ public class TelegramIngestService {
     }
 
     private String extractCaptionIfAny(TdApi.MessageContent c) {
-        if (c instanceof TdApi.MessagePhoto mp && mp.caption != null) {
-            return mp.caption.text;
+        if (c == null) {
+            return null;
         }
-        if (c instanceof TdApi.MessageVideo mv && mv.caption != null) {
-            return mv.caption.text; // видео — только caption
+        if (c instanceof TdApi.MessagePhoto mp) {
+            String text = extractTextFromFormatted(mp.caption);
+            if (text != null) {
+                return text;
+            }
+        }
+        if (c instanceof TdApi.MessageVideo mv) {
+            String text = extractTextFromFormatted(mv.caption);
+            if (text != null) {
+                return text; // видео — только caption
+            }
+        }
+
+        String caption = extractCaptionReflectively(c);
+        if (caption != null) {
+            return caption;
+        }
+
+        return extractCaptionFromNestedMessages(c);
+    }
+
+    private String extractTextFromFormatted(TdApi.FormattedText formattedText) {
+        if (formattedText == null) {
+            return null;
+        }
+        String text = formattedText.text;
+        if (text == null || text.isBlank()) {
+            return null;
+        }
+        return text;
+    }
+
+    private String extractCaptionReflectively(TdApi.MessageContent content) {
+        try {
+            var field = content.getClass().getField("caption");
+            Object value = field.get(content);
+            if (value instanceof TdApi.FormattedText formatted) {
+                return extractTextFromFormatted(formatted);
+            }
+        } catch (NoSuchFieldException | IllegalAccessException ignore) {
+        }
+        return null;
+    }
+
+    private String extractCaptionFromNestedMessages(TdApi.MessageContent content) {
+        try {
+            var field = content.getClass().getField("messages");
+            Object nested = field.get(content);
+            if (nested instanceof TdApi.Message[] messages) {
+                for (TdApi.Message message : messages) {
+                    if (message == null || message.content == null) {
+                        continue;
+                    }
+                    String caption = extractCaptionIfAny(message.content);
+                    if (caption != null) {
+                        return caption;
+                    }
+                }
+            }
+        } catch (NoSuchFieldException | IllegalAccessException ignore) {
         }
         return null;
     }
 
     private OffsetDateTime toOffsetDateTime(int unixSeconds) {
         return OffsetDateTime.ofInstant(java.time.Instant.ofEpochSecond(unixSeconds), ZoneOffset.UTC);
+    }
+
+    private void logProcessingStatus(long chatId,
+                                     long messageId,
+                                     String channelUsername,
+                                     String status,
+                                     String details) {
+        String channel = channelUsername != null ? channelUsername : "-";
+        if (details != null && !details.isBlank()) {
+            log.info("Message processing: chatId={}, messageId={}, channel={}, status={}, details={}",
+                    chatId, messageId, channel, status, details);
+        } else {
+            log.info("Message processing: chatId={}, messageId={}, channel={}, status={}",
+                    chatId, messageId, channel, status);
+        }
     }
 
     private String guessExtension(String mime, String def) {
@@ -301,7 +402,7 @@ public class TelegramIngestService {
             long threadMsgId = threadInfo.messageThreadId;
 
             Optional<TdApi.Messages> histOpt = sendWithRetry(
-                    () -> new TdApi.GetMessageThreadHistory(threadChatId, threadMsgId, 0, 50, 0),
+                    () -> new TdApi.GetMessageThreadHistory(threadChatId, threadMsgId, 0, 0, 50),
                     "thread history for message %d in chat %d".formatted(threadMsgId, threadChatId));
             if (histOpt.isPresent()) {
                 for (TdApi.Message m : histOpt.get().messages) {

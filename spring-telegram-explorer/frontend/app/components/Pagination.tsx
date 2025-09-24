@@ -32,7 +32,7 @@ export function Pagination({ page, onChange }: PaginationProps) {
 
   return (
     <nav aria-label="Навигация по страницам" className="mt-3">
-      <ul className="pagination">
+      <ul className="pagination justify-content-center flex-wrap gap-2">
         <li className={`page-item${previousDisabled ? ' disabled' : ''}`}>
           <button className="page-link" onClick={goPrev} type="button">
             Назад
