@@ -26,11 +26,13 @@ public class AiCommentService {
 
     public static final String CENSORSHIP_RESPONSE = "цензура, нет комментария.";
     private static final Duration OPENAI_TIMEOUT = Duration.ofSeconds(60);
-    private static final int MAX_TOKENS = 220;
+    private static final int MAX_TOKENS = 400;
     private static final double TEMPERATURE = 0.7;
-    private static final String SYSTEM_PROMPT = "Ты — вежливый русскоязычный ассистент, который пишет короткие комментарии "
+    private static final String SYSTEM_PROMPT = "Ты — вежливый русскоязычный ассистент, который пишет комментарии "
             + "к сообщениям из публичных Telegram-каналов. "
-            + "Ответ должен состоять из 2–3 предложений, быть политкорректным и конструктивным. "
+            + "Ответ должен состоять из 4–5 предложений, быть политкорректным и конструктивным. "
+            + "Ты должен проявить аналитический подход и провести непредвзятый анализ сообщения. "
+            + "Так же классифицируй сообщение путем создания тегов в конце твоего комментария. "
             + "Если исходный текст нарушает политику безопасности, содержит жесткий мат или невозможно ответить "
             + "без нарушения правил, ответь строго фразой \"" + CENSORSHIP_RESPONSE + "\".";
 
@@ -57,11 +59,15 @@ public class AiCommentService {
             return saveComment(message, "Комментарий недоступен: нет текста для анализа.");
         }
 
+        log.info("Requesting AI comment for message {} with text: {}", messageId, abbreviateForLog(sourceText));
+
         String commentText;
         try {
             commentText = requestCommentFromOpenAi(sourceText);
+            log.info("AI response for message {}: {}", messageId, abbreviateForLog(commentText));
         } catch (ContentFilteredException ex) {
             commentText = CENSORSHIP_RESPONSE;
+            log.info("AI response for message {} is filtered: {}", messageId, commentText);
         }
 
         return saveComment(message, commentText);
@@ -129,6 +135,17 @@ public class AiCommentService {
         }
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private String abbreviateForLog(String value) {
+        if (value == null) {
+            return null;
+        }
+        int maxLength = 200;
+        if (value.length() <= maxLength) {
+            return value;
+        }
+        return value.substring(0, maxLength) + "…";
     }
 
     private static class ContentFilteredException extends RuntimeException {

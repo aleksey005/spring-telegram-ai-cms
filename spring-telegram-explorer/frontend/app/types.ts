@@ -40,3 +40,9 @@ export interface ChannelView {
   username: string;
   title: string | null;
 }
+
+export interface AssistantMessageEvent {
+  type: 'assistant-message';
+  role: 'assistant' | 'system';
+  text: string;
+}

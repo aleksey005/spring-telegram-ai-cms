@@ -35,7 +35,7 @@ export function Pagination({ page, onChange }: PaginationProps) {
       <ul className="pagination justify-content-center flex-wrap gap-2">
         <li className={`page-item${previousDisabled ? ' disabled' : ''}`}>
           <button className="page-link" onClick={goPrev} type="button">
-            Назад
+            Вперёд
           </button>
         </li>
         <li className="page-item disabled">
@@ -45,7 +45,7 @@ export function Pagination({ page, onChange }: PaginationProps) {
         </li>
         <li className={`page-item${nextDisabled ? ' disabled' : ''}`}>
           <button className="page-link" onClick={goNext} type="button">
-            Вперёд
+            Назад
           </button>
         </li>
       </ul>

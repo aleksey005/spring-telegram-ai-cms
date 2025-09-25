@@ -46,7 +46,7 @@ spring:
 
 # Список публичных каналов: usernames через запятую (например: "tassagency_en, meduzaio")
 explorer:
-  channels: "tassagency_en, meduzaio"
+  channels: "mash, NyashnyeKartinki, mashkomnata, lentadnya, moslentaru, lentadna, rian_ru"
   media-dir: /data/media
   download-photos: true
   download-formats: [png, jpg, jpeg, webp]  # видео не скачиваем — берём только caption
