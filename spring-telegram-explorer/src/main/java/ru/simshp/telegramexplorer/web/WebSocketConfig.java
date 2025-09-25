@@ -5,6 +5,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.socket.config.annotation.EnableWebSocket;
 import org.springframework.web.socket.config.annotation.WebSocketConfigurer;
 import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry;
+import ru.simshp.telegramexplorer.web.websocket.AiAssistantWebSocketHandler;
 import ru.simshp.telegramexplorer.web.websocket.MessageUpdatesWebSocketHandler;
 
 @Configuration
@@ -13,10 +14,13 @@ import ru.simshp.telegramexplorer.web.websocket.MessageUpdatesWebSocketHandler;
 public class WebSocketConfig implements WebSocketConfigurer {
 
     private final MessageUpdatesWebSocketHandler messageUpdatesWebSocketHandler;
+    private final AiAssistantWebSocketHandler aiAssistantWebSocketHandler;
 
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
         registry.addHandler(messageUpdatesWebSocketHandler, "/ws/messages")
+                .setAllowedOriginPatterns("*");
+        registry.addHandler(aiAssistantWebSocketHandler, "/ws/assistant")
                 .setAllowedOriginPatterns("*");
     }
 }

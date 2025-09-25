@@ -1,6 +1,25 @@
+import Script from 'next/script';
 import type { Metadata } from 'next';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './globals.css';
+import { ThemeProvider } from './components/ThemeProvider';
+import { ThemeToggle } from './components/ThemeToggle';
+import { AssistantLauncher } from './components/AssistantLauncher';
+
+const themeInitScript = `(() => {
+  try {
+    const storageKey = 'telegram-explorer-theme';
+    const stored = window.localStorage.getItem(storageKey);
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const theme = stored === 'light' || stored === 'dark' ? stored : prefersDark ? 'dark' : 'light';
+    const root = document.documentElement;
+    root.dataset.bsTheme = theme;
+    root.dataset.theme = theme;
+    root.style.colorScheme = theme;
+  } catch (error) {
+    console.error('Failed to apply theme', error);
+  }
+})();`;
 
 export const metadata: Metadata = {
   title: 'Telegram Explorer',
@@ -21,39 +40,87 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const searchInputId = 'app-global-search';
+
   return (
-    <html lang="ru">
-      <body>
-        <div className="bg-dark text-white py-2">
-          <div className="container d-flex flex-column flex-lg-row align-items-lg-center gap-3">
-            <h1 className="h3 mb-0">Telegram Explorer</h1>
-            <form
-              action="/search"
-              method="get"
-              className="ms-lg-auto d-flex flex-column flex-sm-row align-items-stretch align-items-sm-center gap-2 w-100 w-lg-auto search-form"
-              role="search"
-            >
-              <input
-                type="text"
-                name="q"
-                className="form-control flex-grow-1"
-                placeholder="Поиск (по эмбеддингам)"
-                aria-label="Поиск по эмбеддингам"
-              />
-              <button type="submit" className="btn btn-outline-light search-form__submit">
-                Искать
-              </button>
-            </form>
+    <html lang="ru" suppressHydrationWarning>
+      <body className="bg-body text-body">
+        <Script id="theme-initializer" strategy="beforeInteractive">
+          {themeInitScript}
+        </Script>
+        <ThemeProvider>
+          <div className="app-backdrop">
+            <div className="app-shell container-xl">
+              <header className="app-header surface-card">
+                <div className="app-header__top">
+                  <div className="app-brand">
+                    <span className="app-brand__label">Мониторинг каналов</span>
+                    <h1 className="app-brand__title">Telegram Explorer</h1>
+                    <p className="app-brand__subtitle">
+                      Современная панель для анализа и отслеживания контента телеграм-каналов.
+                    </p>
+                  </div>
+                  <div className="app-header__actions">
+                    <AssistantLauncher />
+                    <ThemeToggle />
+                  </div>
+                </div>
+                <form
+                  action="/search"
+                  method="get"
+                  className="search-form"
+                  role="search"
+                  aria-label="Поиск по эмбеддингам"
+                >
+                  <label htmlFor={searchInputId} className="search-form__label">
+                    Умный поиск по базе
+                  </label>
+                  <div className="search-form__field">
+                    <span className="search-form__icon" aria-hidden="true">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path
+                          d="M15.5 15.5L21 21"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                        <path
+                          d="M10.5 17C14.0899 17 17 14.0899 17 10.5C17 6.91015 14.0899 4 10.5 4C6.91015 4 4 6.91015 4 10.5C4 14.0899 6.91015 17 10.5 17Z"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </span>
+                    <input
+                      id={searchInputId}
+                      type="text"
+                      name="q"
+                      className="search-form__input"
+                      placeholder="Введите запрос или ключевое слово"
+                    />
+                  </div>
+                  <button type="submit" className="btn btn-gradient search-form__submit">
+                    Найти сообщения
+                  </button>
+                </form>
+              </header>
+              <main className="app-main flex-grow-1">
+                <section className="app-content surface-card">{children}</section>
+              </main>
+              <footer className="app-footer surface-card">
+                <div>
+                  <p className="app-footer__title">Telegram Explorer</p>
+                  <p className="app-footer__meta">
+                    Современная панель для анализа и отслеживания контента телеграм-каналов.
+                  </p>
+                </div>
+              </footer>
+            </div>
           </div>
-        </div>
-        <main>
-          <div className="container">{children}</div>
-        </main>
-        <footer className="bg-body-tertiary py-3 mt-auto border-top">
-          <div className="container text-muted small">
-            Данные берутся из локальной базы Telegram Explorer. Интерфейс собран на Next.js 15 и Bootstrap 5.
-          </div>
-        </footer>
+        </ThemeProvider>
       </body>
     </html>
   );

@@ -111,6 +111,9 @@ export function MessageTable({
                 const imageUrl = msg.imageUrl;
                 const isHighlighted = highlightedMessageIds?.has(msg.id) ?? false;
                 const commentPending = pendingCommentIds?.has(msg.id) ?? false;
+                const hasText = typeof msg.text === 'string' && msg.text.trim().length > 0;
+                const hasCaption = typeof msg.caption === 'string' && msg.caption.trim().length > 0;
+                const canRequestComment = Boolean(onGenerateComment && (hasText || hasCaption));
 
                 const handleRowInteraction = () => {
                   if (isHighlighted && onMessageInteraction) {
@@ -141,10 +144,10 @@ export function MessageTable({
                       {!msg.text && !msg.caption && <span className="text-body-secondary">(пусто)</span>}
                       <div className="mt-2">
                         {msg.aiComment ? (
-                          <span className="text-body-secondary">
+                          <span className="text-body-secondary small">
                             <strong>Комментарий AI:</strong> {msg.aiComment}
                           </span>
-                        ) : onGenerateComment ? (
+                        ) : canRequestComment ? (
                           <button
                             type="button"
                             className="btn btn-sm btn-outline-primary"
@@ -154,7 +157,7 @@ export function MessageTable({
                             {commentPending ? 'Запрашиваем…' : 'Получить комментарий'}
                           </button>
                         ) : (
-                          <span className="text-body-secondary">Комментарий AI: —</span>
+                          <span className="text-body-secondary small">Комментарий AI: —</span>
                         )}
                         {commentPending && (
                           <span className="spinner-border spinner-border-sm align-middle ms-2" role="status" />
@@ -205,6 +208,9 @@ export function MessageTable({
           const imageUrl = msg.imageUrl;
           const isHighlighted = highlightedMessageIds?.has(msg.id) ?? false;
           const commentPending = pendingCommentIds?.has(msg.id) ?? false;
+          const hasText = typeof msg.text === 'string' && msg.text.trim().length > 0;
+          const hasCaption = typeof msg.caption === 'string' && msg.caption.trim().length > 0;
+          const canRequestComment = Boolean(onGenerateComment && (hasText || hasCaption));
           const publishedAt = msg.publishedAt ? new Date(msg.publishedAt) : undefined;
           const formattedDate = publishedAt ? publishedAt.toLocaleString('ru-RU') : undefined;
 
@@ -251,10 +257,10 @@ export function MessageTable({
                 )}
                 <div className="mt-3">
                   {msg.aiComment ? (
-                    <span className="text-body-secondary d-block">
+                    <span className="text-body-secondary small d-block">
                       <strong>Комментарий AI:</strong> {msg.aiComment}
                     </span>
-                  ) : onGenerateComment ? (
+                  ) : canRequestComment ? (
                     <button
                       type="button"
                       className="btn btn-sm btn-outline-primary"
@@ -264,7 +270,7 @@ export function MessageTable({
                       {commentPending ? 'Запрашиваем…' : 'Получить комментарий'}
                     </button>
                   ) : (
-                    <span className="text-body-secondary d-block">Комментарий AI: —</span>
+                    <span className="text-body-secondary small d-block">Комментарий AI: —</span>
                   )}
                   {commentPending && (
                     <span className="spinner-border spinner-border-sm align-middle ms-2" role="status" />
